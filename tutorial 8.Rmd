@@ -1,0 +1,88 @@
+---
+title: "tutorial 8"
+author: "jared sleppy"
+date: "10/25/2019"
+output: html_document
+---
+
+
+
+
+## set up
+
+In this dataset, I will be analyzing the traffic stops in Wichita, KS.
+
+```{r load-data}
+library(tidyverse)
+stops <- read_csv("https://datajournalism.tech/wp-content/uploads/2019/10/wichita.csv")
+
+population_2016 <- tibble(subject_race = c("asian/pacific islander", "black", "hispanic", "other/unknown", "white"), num_people = c(19294, 42485, 65090, 16686, 245499)) %>% mutate(subject_race = as.factor(subject_race))
+
+center_lat <- 37.685260
+center_lng <- -97.336411
+```
+
+## exploratory data analysis
+
+You can also embed plots, for example:
+
+```{r analysis, echo=FALSE}
+colnames(stops)
+nrow(stops)
+str(stops)
+summary(stops)
+race_group <- stops %>% 
+  group_by(subject_race) %>% 
+  summarize(n = n(), prop = n / nrow(.))
+race_group
+```
+
+To conduct a benchmark test, I will compute the proportions of demographic data in Wichita, KS.
+```{r}
+population_2016 <- population_2016 %>% 
+  mutate(prop = num_people / sum(num_people))
+```
+
+
+Next step I will combine the two tables of population_2016 and race_group to conduct a benchmark test.
+```{r message=F}
+stops_final <- race_group %>% 
+  left_join(population_2016, by = "subject_race") %>% 
+  mutate(stop_rate = n / num_people)
+  
+```
+
+## Data Visualization
+I will visualize that stop rate by the police in Wichita, KS using a bar chart.
+
+```{r}
+bar <- ggplot(stops_final, aes(x=reorder(subject_race,stop_rate), y = stop_rate))+
+  geom_bar(stat="identity", position="identity", fill="pink")+
+  labs(title="Stopped Drivers by Race", subtitle = "African American drivers got stopped more than White drivers in the city of Wichita, Kansas")+
+  coord_flip()+
+geom_label(aes(x= subject_race, y=stop_rate, label= round(stop_rate,2)))
+bar
+```
+
+Here is an interactive map. click on the dots to see more details about the drivers.
+```{r}
+library(httpuv)
+library(leaflet)
+race <- colorFactor(c("pink", "blue", "white", "burlywood3", "green"),
+          domain = c("asian/pacific islander", "black", "white", "hispanic", "other/unknown"), ordered = TRUE)
+f <- stops %>% drop_na(lat, lng)
+map <- leaflet(f) %>% 
+  addProviderTiles(providers$CartoDB) %>% 
+  setView(lng = center_lng, lat = center_lat, zoom = 16) %>% 
+  addCircleMarkers(~lng,
+                   ~lat,
+                   popup=paste("Race:",  f$subject_race, "Sex:", f$subject_sex, "Age:", f$subject_age),
+                   weight = 3,
+                   radius = 4,
+                   color=~race(subject_race),
+                   stroke=F,
+                   fillOpacity =1)
+map
+```
+
+
